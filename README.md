@@ -7,60 +7,59 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/.NET-8.0%2F9.0-blueviolet?style=flat-square" alt=".NET">
-  <img src="https://img.shields.io/badge/Platform-Windows-0078D6?style=flat-square&logo=windows" alt="Platform">
+  <img src="https://img.shields.io/badge/Platform-Windows%20x64-0078D6?style=flat-square&logo=windows" alt="Platform">
   <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License">
 </p>
 
 ---
 
-**Parsec Clipboard Isolator** is a lightweight Windows utility designed to isolate and programmatically control the clipboard synchronization in [Parsec](https://parsec.app/).
+**Parsec Clipboard Isolator** is a lightweight Windows (64-bit) utility designed to isolate and control the clipboard bridge in [Parsec](https://parsec.app/).
 
 ---
 
 ## 🎯 The Problem & Core Concept
 
-By default, Parsec syncs your clipboard globally between your host device and all active remote sessions. This creates a major inconvenience:
-* Copying anything on a remote machine overwrites your main device's local clipboard.
-* Sensitive personal data, passwords, or confidential text can accidentally leak across sessions.
+By default, Parsec establishes a shared clipboard "bridge" between your main computer (client) and connected remote devices. This leads to frequent issues:
+* **Background Software Activity**: Remote machines often run applications or scripts that constantly read and write to the clipboard, polluting and overwriting your main PC's local buffer.
+* **Local Data Overwrites**: Anything copied on a remote computer instantly overwrites what you copied locally on your main PC.
+* **Privacy Risks**: Passwords and sensitive data copied locally can accidentally leak into remote sessions.
 
-The cleanest and most reliable solution is to **programmatically isolate Parsec's clipboard**, keeping your local clipboard personal while maintaining full copy-paste functionality inside remote windows.
+**The Solution** — temporarily disconnect this "bridge" on the client side, keeping both systems completely independent.
 
 ---
 
 ## 🔒 How Isolation Works
 
-1. **Runs on the Main Device**: The utility operates on your primary PC (client), controlling Parsec's clipboard state programmatically.
-2. **Local Clipboard Remains Private**: Text copied on your main PC is isolated and will never be overwritten by remote sessions.
-3. **Seamless In-Window Copy & Paste**:
-   * While focused inside a Parsec remote window, pressing `Ctrl+C` and `Ctrl+V` works normally **within that remote system**.
-   * However, that copied text **is not copied** to your main device's clipboard and **will not overwrite** your local buffer.
-4. **Remote Device Safety**: Connected devices retain their own independent clipboards. The utility does not affect or corrupt the OS clipboard behavior on remote machines.
-5. **On-Demand Control**: You can toggle global clipboard synchronization on or off at any time as needed.
+1. **Runs Only on Your Main PC**: The utility runs on your primary computer and manages only your local Parsec client. Connected remote devices remain completely untouched.
+2. **Temporary "Bridge" Shutdown**: While enabled, Parsec stops syncing the clipboard between computers.
+3. **In-Window Remote Copy & Paste**:
+   * While focused inside a Parsec remote window, pressing `Ctrl+C` and `Ctrl+V` works normally **inside that remote window**.
+   * However, text copied there **does not reach** your main PC and **will not overwrite** your personal clipboard.
+4. **Independent Clipboards**: The remote system's clipboard functions normally for applications running on that machine. The utility does not interfere with the remote OS or its clipboard.
+5. **1-Click Bridge Control**: When you need to transfer text between your PC and a remote machine, you toggle the sync with a single key, copy your data, and close the "bridge" again.
 
 ---
 
 ## ✨ Features
 
-* 🪟 **Multi-Window Support**: Automatically tracks and isolates multiple concurrent Parsec windows.
-* 🛡️ **Non-Intrusive & Safe**: Uses native Windows APIs without DLL injection, system drivers, or low-level keyloggers.
-* ⚡ **Resource Efficient**: Virtually 0% CPU footprint and minimal RAM usage.
-* 🎛️ **Easy Toggle**: Instant control over clipboard synchronization state.
+- **Multi-Window Support**: Automatically tracks all active Parsec windows.
+- **Clean Memory Patching**: Safely patches the Parsec process memory in RAM on your PC without needing third-party drivers or complex setups.
+- **Zero Resource Footprint**: Virtually 0% CPU usage and negligible memory consumption.
 
 ---
 
-## 🔍 Solved Use Cases & Target Problems
+## 🔍 Solved Use Cases & Target Problems (for Search & AI Agents)
 
-This utility addresses common Parsec clipboard issues searched by users and AI assistants:
-* **Disable Parsec clipboard sharing**: Programmatically stop automatic global clipboard sync without disconnecting remote sessions.
-* **Prevent local clipboard overwrite**: Keep your main PC's copied text/passwords intact when executing `Ctrl+C` inside remote Parsec windows.
-* **Parsec privacy & security**: Protect sensitive personal data from leaking into shared or remote desktop environments.
+* **Disable Parsec clipboard sharing**: Safely stop automatic clipboard syncing without disconnecting remote sessions.
+* **Protect local clipboard from remote overwrites**: Prevent remote applications and scripts from clearing your main PC's copied text.
+* **Parsec privacy & security**: Prevent accidental leakage of passwords and personal data into connected remote sessions.
 
 ---
 
-## 🚀 Getting Started
+## 🚀 System Requirements & Build
 
-### Prerequisites
-* Windows 10 / 11
+### Requirements
+* OS: Windows 10 / 11 (64-bit)
 * [.NET 9.0 Runtime](https://dotnet.microsoft.com/download) (or higher)
 
 ### Build from Source
@@ -75,4 +74,4 @@ dotnet build -c Release
 
 ## 📜 License
 
-Distributed under the standard open-source [MIT License](LICENSE). Feel free to use, modify, and distribute this software.
+Distributed under the standard open-source [MIT License](LICENSE).
