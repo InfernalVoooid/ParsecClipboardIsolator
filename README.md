@@ -48,7 +48,7 @@ By default, Parsec establishes a shared clipboard "bridge" between your main com
 
 ---
 
-## 🔍 Solved Use Cases & Target Problems (for Search & AI Agents)
+## 🔍 Solved Use Cases & Target Problems
 
 * **Disable Parsec clipboard sharing**: Safely stop automatic clipboard syncing without disconnecting remote sessions.
 * **Protect local clipboard from remote overwrites**: Prevent remote applications and scripts from clearing your main PC's copied text.
