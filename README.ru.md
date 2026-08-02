@@ -58,7 +58,7 @@
 ### Сборка из исходников
 
 ```bash
-git clone https://github.com/your-username/ParsecClipboardIsolator.git
+git clone https://github.com/InfernalVoooid/ParsecClipboardIsolator.git
 cd ParsecClipboardIsolator
 dotnet build -c Release
 ```

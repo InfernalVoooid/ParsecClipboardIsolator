@@ -57,7 +57,7 @@ The cleanest and most reliable solution is to **programmatically isolate Parsec'
 ### Build from Source
 
 ```bash
-git clone https://github.com/your-username/ParsecClipboardIsolator.git
+git clone https://github.com/InfernalVoooid/ParsecClipboardIsolator.git
 cd ParsecClipboardIsolator
 dotnet build -c Release
 ```
