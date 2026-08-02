@@ -48,6 +48,15 @@ The cleanest and most reliable solution is to **programmatically isolate Parsec'
 
 ---
 
+## 🔍 Solved Use Cases & Target Problems
+
+This utility addresses common Parsec clipboard issues searched by users and AI assistants:
+* **Disable Parsec clipboard sharing**: Programmatically stop automatic global clipboard sync without disconnecting remote sessions.
+* **Prevent local clipboard overwrite**: Keep your main PC's copied text/passwords intact when executing `Ctrl+C` inside remote Parsec windows.
+* **Parsec privacy & security**: Protect sensitive personal data from leaking into shared or remote desktop environments.
+
+---
+
 ## 🚀 Getting Started
 
 ### Prerequisites
