@@ -1,6 +1,4 @@
 using System;
-using System.Runtime.Versioning;
-using System.Security.Principal;
 using ParsecClipboardIsolator.Models;
 using ParsecClipboardIsolator.Services;
 using ParsecClipboardIsolator.UI;
@@ -12,8 +10,6 @@ using var isolator = new ParsecIsolator();
 var globalView = new GlobalView();
 var targetedView = new TargetedView();
 IView activeView = globalView;
-
-bool isAdministrator = IsUserAdministrator();
 
 string? defaultProfile = ProfileManager.GetDefaultProfile();
 if (defaultProfile != null)
@@ -54,11 +50,7 @@ Console.CancelKeyPress += (s, e) =>
 
 activeView.DrawFull(isolator);
 
-if (!isAdministrator)
-{
-    activeView.ShowFeedback("ВНИМАНИЕ: Запущено без прав Администратора! Некоторым окнам может не хватить прав.", ConsoleColor.Yellow);
-}
-else if (initResult.SkippedDueToArch > 0)
+if (initResult.SkippedDueToArch > 0)
 {
     activeView.ShowFeedback($"ВНИМАНИЕ: Пропущено окон: {initResult.SkippedDueToArch} (разная разрядность!).", ConsoleColor.Red);
 }
@@ -121,19 +113,4 @@ try
 finally
 {
     Console.CursorVisible = true;
-}
-
-[SupportedOSPlatform("windows")]
-static bool IsUserAdministrator()
-{
-    try
-    {
-        using var identity = WindowsIdentity.GetCurrent();
-        var principal = new WindowsPrincipal(identity);
-        return principal.IsInRole(WindowsBuiltInRole.Administrator);
-    }
-    catch
-    {
-        return false;
-    }
 }
