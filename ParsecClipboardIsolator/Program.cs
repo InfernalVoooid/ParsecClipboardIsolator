@@ -1,5 +1,9 @@
 using System;
-using ParsecClipboardIsolator;
+using System.Runtime.Versioning;
+using System.Security.Principal;
+using ParsecClipboardIsolator.Models;
+using ParsecClipboardIsolator.Services;
+using ParsecClipboardIsolator.UI;
 
 Console.Title = "Parsec Clipboard Isolator";
 Console.CursorVisible = false;
@@ -8,6 +12,8 @@ using var isolator = new ParsecIsolator();
 var globalView = new GlobalView();
 var targetedView = new TargetedView();
 IView activeView = globalView;
+
+bool isAdministrator = IsUserAdministrator();
 
 string? defaultProfile = ProfileManager.GetDefaultProfile();
 if (defaultProfile != null)
@@ -20,7 +26,7 @@ if (defaultProfile != null)
     activeView = targetedView;
 }
 
-ParsecIsolator.RefreshResult initResult;
+RefreshResult initResult;
 try
 {
     initResult = isolator.Initialize();
@@ -35,12 +41,24 @@ catch (Exception ex) when (ex is not OutOfMemoryException)
 }
 
 // Гарантируем откат байт OpenClipboard и закрытие дескрипторов при любом способе выхода из программы
-AppDomain.CurrentDomain.ProcessExit += (s, e) => isolator.Dispose();
-Console.CancelKeyPress += (s, e) => isolator.Dispose();
+AppDomain.CurrentDomain.ProcessExit += (s, e) => 
+{
+    isolator.Dispose();
+    Console.CursorVisible = true;
+};
+Console.CancelKeyPress += (s, e) => 
+{
+    isolator.Dispose();
+    Console.CursorVisible = true;
+};
 
 activeView.DrawFull(isolator);
 
-if (initResult.SkippedDueToArch > 0)
+if (!isAdministrator)
+{
+    activeView.ShowFeedback("ВНИМАНИЕ: Запущено без прав Администратора! Некоторым окнам может не хватить прав.", ConsoleColor.Yellow);
+}
+else if (initResult.SkippedDueToArch > 0)
 {
     activeView.ShowFeedback($"ВНИМАНИЕ: Пропущено окон: {initResult.SkippedDueToArch} (разная разрядность!).", ConsoleColor.Red);
 }
@@ -49,51 +67,73 @@ else if (isolator.TrackedProcessesCount == 0)
     activeView.ShowFeedback("Parsec не запущен. Запустите Parsec и нажмите [R].", ConsoleColor.Yellow);
 }
 
-while (true)
+try
 {
-    var key = Console.ReadKey(intercept: true);
-    
-    if (key.Key == ConsoleKey.Escape)
+    while (true)
     {
-        activeView.ShowFeedback("Завершение работы программы...", ConsoleColor.Cyan);
-        return;
-    }
-    
-    if (key.Key == ConsoleKey.R)
-    {
-        var result = isolator.Refresh();
+        var key = Console.ReadKey(intercept: true);
         
-        string archWarning = result.SkippedDueToArch > 0 
-            ? $" (Пропущено {result.SkippedDueToArch} из-за разрядности!)" 
-            : "";
-            
-        string removedInfo = result.Removed > 0 
-            ? $". Очищено: {result.Removed}" 
-            : "";
-            
-        string feedback = $"[+] Обновлено. Новых: {result.NewlyAttached}{removedInfo}{archWarning}";
-        ConsoleColor color = result.SkippedDueToArch > 0 ? ConsoleColor.Yellow : ConsoleColor.DarkGray;
+        if (key.Key == ConsoleKey.Escape)
+        {
+            activeView.ShowFeedback("Завершение работы программы...", ConsoleColor.Cyan);
+            return;
+        }
         
-        activeView.UpdateDynamic(isolator);
-        activeView.ShowFeedback(feedback, color);
-        continue;
-    }
+        if (key.Key == ConsoleKey.R)
+        {
+            var result = isolator.Refresh();
+            
+            string archWarning = result.SkippedDueToArch > 0 
+                ? $" (Пропущено {result.SkippedDueToArch} из-за разрядности!)" 
+                : "";
+                
+            string removedInfo = result.Removed > 0 
+                ? $". Очищено: {result.Removed}" 
+                : "";
+                
+            string feedback = $"Обновлено. Новых: {result.NewlyAttached}{removedInfo}{archWarning}";
+            ConsoleColor color = result.SkippedDueToArch > 0 ? ConsoleColor.Yellow : ConsoleColor.DarkGray;
+            
+            activeView.UpdateDynamic(isolator);
+            activeView.ShowFeedback(feedback, color);
+            continue;
+        }
 
-    if (key.Key == ConsoleKey.LeftArrow && activeView is TargetedView)
-    {
-        isolator.SetMode(IsolationMode.Global);
-        activeView = globalView;
-        activeView.DrawFull(isolator);
-        continue;
-    }
-    
-    if (key.Key == ConsoleKey.RightArrow && activeView is GlobalView)
-    {
-        isolator.SetMode(IsolationMode.Targeted);
-        activeView = targetedView;
-        activeView.DrawFull(isolator);
-        continue;
-    }
+        if (key.Key == ConsoleKey.LeftArrow && activeView is TargetedView)
+        {
+            isolator.SetMode(IsolationMode.Global);
+            activeView = globalView;
+            activeView.DrawFull(isolator);
+            continue;
+        }
+        
+        if (key.Key == ConsoleKey.RightArrow && activeView is GlobalView)
+        {
+            isolator.SetMode(IsolationMode.Targeted);
+            activeView = targetedView;
+            activeView.DrawFull(isolator);
+            continue;
+        }
 
-    activeView.HandleKey(key, isolator);
+        activeView.HandleKey(key, isolator);
+    }
+}
+finally
+{
+    Console.CursorVisible = true;
+}
+
+[SupportedOSPlatform("windows")]
+static bool IsUserAdministrator()
+{
+    try
+    {
+        using var identity = WindowsIdentity.GetCurrent();
+        var principal = new WindowsPrincipal(identity);
+        return principal.IsInRole(WindowsBuiltInRole.Administrator);
+    }
+    catch
+    {
+        return false;
+    }
 }

@@ -37,12 +37,17 @@ By default, Parsec establishes a shared clipboard "bridge" between your main com
    * However, text copied there **does not reach** your main PC and **will not overwrite** your personal clipboard.
 4. **Independent Clipboards**: The remote system's clipboard functions normally for applications running on that machine. The utility does not interfere with the remote OS or its clipboard.
 5. **Granular & Global Control**: Toggle clipboard sync globally for all sessions or selectively for specific remote windows.
+6. **Global Mouse Focus Guard (`[F]`)**:
+   * When enabled, you can freely move your mouse cursor across Parsec windows without capturing input.
+   * If remote automation (bots/scripts) or another user is controlling the mouse inside a Parsec window, hovering over it **will not hijack** or disrupt their control while the window is unfocused.
+   * Seamless and zero-configuration: simply **click on the Parsec window** to gain focus and control the mouse. As soon as you click back onto the desktop or another app, the Parsec window instantly loses focus and the cursor becomes invisible/ignored again.
 
 ---
 
 ## ✨ Features
 
 - **Global & Targeted Isolation Modes**: Switch effortlessly between controlling all Parsec windows at once or targeting individual remote sessions.
+- **Global Mouse Focus Protection (`[F]`)**: Prevents unfocused Parsec windows from capturing hover or mouse input until explicitly clicked.
 - **Window Selection & Granular Control**: Selectively isolate specific Parsec windows while leaving others connected.
 - **Window "Ping" (Bring to Foreground)**: Press `P` on any window in the list to bring it to the foreground for instant visual identification.
 - **Profile Management & Auto-load**: Save custom window isolation presets to profiles and set a **Default Profile** to automatically load on startup.
@@ -59,6 +64,7 @@ The utility provides two flexible modes with an intuitive interactive console UI
 * **[GLOBAL MODE]** — toggle clipboard isolation for **all** running Parsec windows simultaneously (`Enter`).
 * **[TARGETED MODE]** — granular control over individual Parsec windows:
   * `[Space]` — toggle isolation for the selected window in the list.
+  * `[F]` — toggle Global Mouse Focus Protection (unfocused windows ignore mouse movements until clicked).
   * `[P]` (**Window Ping**) — bring the selected Parsec window to the foreground to instantly identify which remote machine it belongs to.
   * `[1] / [2]` — isolate all windows or unblock all at once.
   * `[S]` — save the current window isolation setup to a profile.
