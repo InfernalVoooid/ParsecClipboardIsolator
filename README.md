@@ -36,15 +36,43 @@ By default, Parsec establishes a shared clipboard "bridge" between your main com
    * While focused inside a Parsec remote window, pressing `Ctrl+C` and `Ctrl+V` works normally **inside that remote window**.
    * However, text copied there **does not reach** your main PC and **will not overwrite** your personal clipboard.
 4. **Independent Clipboards**: The remote system's clipboard functions normally for applications running on that machine. The utility does not interfere with the remote OS or its clipboard.
-5. **1-Click Bridge Control**: When you need to transfer text between your PC and a remote machine, you toggle the sync with a single key, copy your data, and close the "bridge" again.
+5. **Granular & Global Control**: Toggle clipboard sync globally for all sessions or selectively for specific remote windows.
 
 ---
 
 ## ✨ Features
 
-- **Multi-Window Support**: Automatically tracks all active Parsec windows.
+- **Global & Targeted Isolation Modes**: Switch effortlessly between controlling all Parsec windows at once or targeting individual remote sessions.
+- **Window Selection & Granular Control**: Selectively isolate specific Parsec windows while leaving others connected.
+- **Window "Ping" (Bring to Foreground)**: Press `P` on any window in the list to bring it to the foreground for instant visual identification.
+- **Profile Management & Auto-load**: Save custom window isolation presets to profiles and set a **Default Profile** to automatically load on startup.
+- **Multi-Window Support**: Automatically tracks all active Parsec processes and handles window refresh dynamically.
 - **Clean Memory Patching**: Safely patches the Parsec process memory in RAM on your PC without needing third-party drivers or complex setups.
 - **Zero Resource Footprint**: Virtually 0% CPU usage and negligible memory consumption.
+
+---
+
+## 🎮 Modes & Controls
+
+The utility provides two flexible modes with an intuitive interactive console UI:
+
+* **[GLOBAL MODE]** — toggle clipboard isolation for **all** running Parsec windows simultaneously (`Enter`).
+* **[TARGETED MODE]** — granular control over individual Parsec windows:
+  * `[Space]` — toggle isolation for the selected window in the list.
+  * `[P]` (**Window Ping**) — bring the selected Parsec window to the foreground to instantly identify which remote machine it belongs to.
+  * `[1] / [2]` — isolate all windows or unblock all at once.
+  * `[S]` — save the current window isolation setup to a profile.
+  * `[L]` — open the Profile Manager (load, delete, or set a default profile).
+  * `[← / →]` — switch between Global and Targeted modes.
+  * `[R]` — refresh the active Parsec processes list.
+
+---
+
+## 📁 Profile System
+
+Easily manage sets of rules for selectively isolated windows:
+* **Save & Load Profiles**: Create presets for different workflows and swap them on the fly.
+* **Default Profile**: Set a default profile by pressing `[Space]` in the Profile Manager. The utility will automatically load it on startup and switch straight into Targeted Mode.
 
 ---
 
@@ -52,6 +80,7 @@ By default, Parsec establishes a shared clipboard "bridge" between your main com
 
 * **Disable Parsec clipboard sharing**: Safely stop automatic clipboard syncing without disconnecting remote sessions.
 * **Protect local clipboard from remote overwrites**: Prevent remote applications and scripts from clearing your main PC's copied text.
+* **Selectively isolate remote connections**: Keep clipboard sync active for trusted remote machines while blocking untrusted ones.
 * **Parsec privacy & security**: Prevent accidental leakage of passwords and personal data into connected remote sessions.
 
 ---
