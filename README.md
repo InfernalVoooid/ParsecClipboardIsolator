@@ -85,6 +85,8 @@ Easily manage sets of rules for selectively isolated windows:
 ## 🔍 Solved Use Cases & Target Problems
 
 * **Disable Parsec clipboard sharing**: Safely stop automatic clipboard syncing without disconnecting remote sessions.
+* **Prevent background mouse & cursor hijacking**: Prevents unfocused Parsec windows from grabbing mouse input while moving your cursor across screens.
+* **Protect remote automation & bots**: Keeps remote clickers, automation scripts, and active secondary users running uninterrupted when hovering over Parsec windows.
 * **Protect local clipboard from remote overwrites**: Prevent remote applications and scripts from clearing your main PC's copied text.
 * **Selectively isolate remote connections**: Keep clipboard sync active for trusted remote machines while blocking untrusted ones.
 * **Parsec privacy & security**: Prevent accidental leakage of passwords and personal data into connected remote sessions.
