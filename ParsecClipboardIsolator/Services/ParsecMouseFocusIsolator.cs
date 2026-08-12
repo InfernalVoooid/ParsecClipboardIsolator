@@ -227,20 +227,27 @@ internal sealed class ParsecMouseFocusIsolator : IDisposable
         {
             bool isForeground = (fgPid == (uint)pid);
 
-            if (hWnd != IntPtr.Zero)
+            IntPtr targetHwnd = hWnd;
+            if (targetHwnd == IntPtr.Zero)
             {
-                NativeMethods.EnableWindow(hWnd, isForeground);
+                targetHwnd = GetWindowHandleForPid((uint)pid);
+            }
+
+            if (targetHwnd != IntPtr.Zero)
+            {
+                NativeMethods.EnableWindow(targetHwnd, isForeground);
             }
         }
     }
 
     private void RestoreAllWindowsLocked()
     {
-        foreach (var hWnd in _trackedProcessWindows.Values)
+        foreach (var (pid, hWnd) in _trackedProcessWindows)
         {
-            if (hWnd != IntPtr.Zero)
+            IntPtr targetHwnd = hWnd != IntPtr.Zero ? hWnd : GetWindowHandleForPid((uint)pid);
+            if (targetHwnd != IntPtr.Zero)
             {
-                NativeMethods.EnableWindow(hWnd, true);
+                NativeMethods.EnableWindow(targetHwnd, true);
             }
         }
     }
@@ -251,41 +258,64 @@ internal sealed class ParsecMouseFocusIsolator : IDisposable
         {
             int message = wParam.ToInt32();
 
-            // Перехватываем клик мышью (ЛКМ), чтобы включить ввод и сфокусировать неактивное окно Parsec
-            if (message == NativeMethods.WM_LBUTTONDOWN)
+            // Перехватываем физический клик мышью (ЛКМ/ПКМ), чтобы включить ввод и сфокусировать неактивное окно Parsec.
+            // Игнорируем инжектированный (синтетический) ввод от удаленных сессий Parsec/RDP (LLMHF_INJECTED).
+            if (message is NativeMethods.WM_LBUTTONDOWN or NativeMethods.WM_RBUTTONDOWN)
             {
                 var hookStruct = Marshal.PtrToStructure<MSLLHOOKSTRUCT>(lParam);
-                IntPtr hWndUnderCursor = NativeMethods.WindowFromPoint(hookStruct.pt);
-
-                if (hWndUnderCursor != IntPtr.Zero)
+                
+                bool isInjected = (hookStruct.flags & (NativeMethods.LLMHF_INJECTED | NativeMethods.LLMHF_LOWER_IL_INJECTED)) != 0;
+                
+                if (!isInjected)
                 {
-                    IntPtr rootHwnd = NativeMethods.GetAncestor(hWndUnderCursor, NativeMethods.GA_ROOT);
-                    if (rootHwnd == IntPtr.Zero) rootHwnd = hWndUnderCursor;
+                    IntPtr hWndUnderCursor = NativeMethods.WindowFromPoint(hookStruct.pt);
 
-                    NativeMethods.GetWindowThreadProcessId(rootHwnd, out uint targetPid);
-
-                    // Lock-free проверка через неизменяемый снимок snapshot без блокировки системного потока мыши
-                    var snapshot = Volatile.Read(ref _trackedWindowsSnapshot);
-                    bool isTracked = snapshot.ContainsKey((int)targetPid);
-
-                    if (isTracked)
+                    if (hWndUnderCursor != IntPtr.Zero)
                     {
-                        IntPtr fgHwnd = NativeMethods.GetForegroundWindow();
-                        NativeMethods.GetWindowThreadProcessId(fgHwnd, out uint fgPid);
+                        IntPtr rootHwnd = NativeMethods.GetAncestor(hWndUnderCursor, NativeMethods.GA_ROOT);
+                        if (rootHwnd == IntPtr.Zero) rootHwnd = hWndUnderCursor;
 
-                        if (fgPid != targetPid)
+                        NativeMethods.GetWindowThreadProcessId(rootHwnd, out uint targetPid);
+
+                        var snapshot = Volatile.Read(ref _trackedWindowsSnapshot);
+                        bool isTracked = snapshot.ContainsKey((int)targetPid);
+
+                        if (isTracked)
                         {
-                            // Включаем окно и переводим его в фокус при клике ЛКМ
-                            NativeMethods.EnableWindow(rootHwnd, true);
-                            NativeMethods.SetForegroundWindow(rootHwnd);
+                            IntPtr fgHwnd = NativeMethods.GetForegroundWindow();
+                            NativeMethods.GetWindowThreadProcessId(fgHwnd, out uint fgPid);
+
+                            if (fgPid != targetPid)
+                            {
+                                NativeMethods.EnableWindow(rootHwnd, true);
+                                ParsecIsolator.ActivateWindowSafely(rootHwnd, targetPid);
+                            }
                         }
                     }
                 }
             }
         }
 
-        // Все сообщения движения мыши пропускаются через CallNextHookEx,
-        // что позволяет курсору ОС свободно передвигаться по экрану
         return NativeMethods.CallNextHookEx(_hookHandle, nCode, wParam, lParam);
+    }
+
+    private static IntPtr GetWindowHandleForPid(uint pid)
+    {
+        IntPtr foundHwnd = IntPtr.Zero;
+        NativeMethods.EnumWindows((hWnd, lParam) =>
+        {
+            if (NativeMethods.IsWindowVisible(hWnd))
+            {
+                NativeMethods.GetWindowThreadProcessId(hWnd, out uint windowPid);
+                if (windowPid == pid)
+                {
+                    IntPtr rootHwnd = NativeMethods.GetAncestor(hWnd, NativeMethods.GA_ROOT);
+                    foundHwnd = rootHwnd != IntPtr.Zero ? rootHwnd : hWnd;
+                    return false;
+                }
+            }
+            return true;
+        }, IntPtr.Zero);
+        return foundHwnd;
     }
 }

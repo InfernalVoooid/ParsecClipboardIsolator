@@ -107,7 +107,8 @@ internal sealed class ParsecIsolator : IDisposable
                     }
 
                     string exePath = GetProcessPath(hProc) ?? $"UnknownPath_{p.Id}";
-                    var info = new ParsecProcessInfo(p.Id, hProc, p.MainWindowHandle, exePath);
+                    IntPtr mainHwnd = GetWindowHandleForProcess(p.Id, p.MainWindowHandle);
+                    var info = new ParsecProcessInfo(p.Id, hProc, mainHwnd, exePath);
                     
                     _processes.Add(p.Id, info);
                     newlyAttached++;
@@ -221,12 +222,36 @@ internal sealed class ParsecIsolator : IDisposable
     {
         lock (_syncRoot)
         {
-            if (_processes.TryGetValue(pid, out var proc) && proc.MainWindowHandle != IntPtr.Zero)
+            if (!_processes.TryGetValue(pid, out var proc))
+                return false;
+
+            IntPtr targetHwnd = proc.MainWindowHandle;
+            int targetPid = proc.Pid;
+
+            if (targetHwnd == IntPtr.Zero)
             {
-                NativeMethods.ShowWindow(proc.MainWindowHandle, NativeMethods.SW_RESTORE);
-                NativeMethods.SetForegroundWindow(proc.MainWindowHandle);
-                return true;
+                // Если у выбранного PID нет главного окна, ищем другой процесс того же инстанса с окном
+                var sibling = _processes.Values.FirstOrDefault(p => 
+                    p.ExecutablePath.Equals(proc.ExecutablePath, StringComparison.OrdinalIgnoreCase) && 
+                    p.MainWindowHandle != IntPtr.Zero);
+
+                if (sibling != null)
+                {
+                    targetHwnd = sibling.MainWindowHandle;
+                    targetPid = sibling.Pid;
+                }
             }
+
+            if (targetHwnd == IntPtr.Zero)
+            {
+                targetHwnd = GetWindowHandleForProcess(targetPid, IntPtr.Zero);
+            }
+
+            if (targetHwnd != IntPtr.Zero)
+            {
+                return ActivateWindowSafely(targetHwnd, (uint)targetPid);
+            }
+
             return false;
         }
     }
@@ -357,5 +382,72 @@ internal sealed class ParsecIsolator : IDisposable
             return buffer.Slice(0, (int)bufferSize).ToString();
         }
         return null;
+    }
+
+    // Сканирует видимые окна системы с помощью EnumWindows, определяя реальный HWND процесса Parsec
+    private static IntPtr GetWindowHandleForProcess(int pid, IntPtr defaultHwnd)
+    {
+        if (defaultHwnd != IntPtr.Zero && NativeMethods.IsWindowVisible(defaultHwnd))
+        {
+            return defaultHwnd;
+        }
+
+        IntPtr foundHwnd = IntPtr.Zero;
+        NativeMethods.EnumWindows((hWnd, lParam) =>
+        {
+            if (NativeMethods.IsWindowVisible(hWnd))
+            {
+                NativeMethods.GetWindowThreadProcessId(hWnd, out uint windowPid);
+                if (windowPid == (uint)pid)
+                {
+                    IntPtr rootHwnd = NativeMethods.GetAncestor(hWnd, NativeMethods.GA_ROOT);
+                    foundHwnd = rootHwnd != IntPtr.Zero ? rootHwnd : hWnd;
+                    return false;
+                }
+            }
+            return true;
+        }, IntPtr.Zero);
+
+        return foundHwnd;
+    }
+
+    // Выполняет безопасный вывод окна на передний план с разблокировкой фокуса (AttachThreadInput + AllowSetForegroundWindow)
+    public static bool ActivateWindowSafely(IntPtr hWnd, uint targetPid)
+    {
+        if (hWnd == IntPtr.Zero) return false;
+
+        NativeMethods.AllowSetForegroundWindow(targetPid);
+        NativeMethods.AllowSetForegroundWindow(NativeMethods.ASFW_ANY);
+
+        if (NativeMethods.IsIconic(hWnd))
+        {
+            NativeMethods.ShowWindow(hWnd, NativeMethods.SW_RESTORE);
+        }
+
+        uint currentThreadId = NativeMethods.GetCurrentThreadId();
+        IntPtr fgHwnd = NativeMethods.GetForegroundWindow();
+        uint fgThreadId = fgHwnd != IntPtr.Zero ? NativeMethods.GetWindowThreadProcessId(fgHwnd, out _) : 0;
+
+        bool attached = false;
+        if (fgThreadId != 0 && fgThreadId != currentThreadId)
+        {
+            attached = NativeMethods.AttachThreadInput(currentThreadId, fgThreadId, true);
+        }
+
+        try
+        {
+            NativeMethods.ShowWindow(hWnd, NativeMethods.SW_RESTORE);
+            NativeMethods.BringWindowToTop(hWnd);
+            NativeMethods.SetForegroundWindow(hWnd);
+            NativeMethods.SwitchToThisWindow(hWnd, true);
+            return true;
+        }
+        finally
+        {
+            if (attached)
+            {
+                NativeMethods.AttachThreadInput(currentThreadId, fgThreadId, false);
+            }
+        }
     }
 }
