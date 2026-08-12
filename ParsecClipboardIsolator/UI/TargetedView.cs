@@ -37,13 +37,34 @@ internal sealed class TargetedView : IView
         UpdateDynamic(isolator);
     }
 
+    private sealed record ProcessGroup(string ExecutablePath, int PrimaryPid, int[] AllPids, IntPtr MainWindowHandle);
+
+    private static ProcessGroup[] GetGroups(Models.ParsecProcessInfo[] processes)
+    {
+        if (processes.Length == 0) return [];
+
+        return processes
+            .GroupBy(p => p.ExecutablePath, StringComparer.OrdinalIgnoreCase)
+            .Select(g =>
+            {
+                var guiProc = g.FirstOrDefault(p => p.MainWindowHandle != IntPtr.Zero) ?? g.First();
+                return new ProcessGroup(
+                    g.Key,
+                    guiProc.Pid,
+                    g.Select(p => p.Pid).ToArray(),
+                    guiProc.MainWindowHandle
+                );
+            })
+            .ToArray();
+    }
+
     public void UpdateDynamic(ParsecIsolator isolator)
     {
         Console.SetCursorPosition(0, _headerBottomTop);
 
-        var processes = isolator.GetTrackedProcessesSnapshot();
+        var groups = GetGroups(isolator.GetTrackedProcessesSnapshot());
         
-        if (processes.Length == 0)
+        if (groups.Length == 0)
         {
             _selectedIndex = 0;
             _scrollOffset = 0;
@@ -53,9 +74,9 @@ internal sealed class TargetedView : IView
         }
         else
         {
-            if (_selectedIndex >= processes.Length)
+            if (_selectedIndex >= groups.Length)
             {
-                _selectedIndex = processes.Length - 1;
+                _selectedIndex = groups.Length - 1;
             }
             if (_selectedIndex < 0)
             {
@@ -71,13 +92,13 @@ internal sealed class TargetedView : IView
                 _scrollOffset = _selectedIndex - MaxVisibleItems + 1;
             }
 
-            int maxOffset = Math.Max(0, processes.Length - MaxVisibleItems);
+            int maxOffset = Math.Max(0, groups.Length - MaxVisibleItems);
             if (_scrollOffset > maxOffset)
             {
                 _scrollOffset = maxOffset;
             }
 
-            bool showScrollIndicators = processes.Length > MaxVisibleItems;
+            bool showScrollIndicators = groups.Length > MaxVisibleItems;
 
             if (showScrollIndicators)
             {
@@ -93,11 +114,11 @@ internal sealed class TargetedView : IView
                 }
             }
 
-            int endIndex = Math.Min(processes.Length, _scrollOffset + MaxVisibleItems);
+            int endIndex = Math.Min(groups.Length, _scrollOffset + MaxVisibleItems);
             for (int i = _scrollOffset; i < endIndex; i++)
             {
-                var proc = processes[i];
-                bool isBlocked = isolator.IsPathBlocked(proc.ExecutablePath);
+                var group = groups[i];
+                bool isBlocked = isolator.IsPathBlocked(group.ExecutablePath);
                 
                 if (i == _selectedIndex)
                 {
@@ -117,7 +138,7 @@ internal sealed class TargetedView : IView
                 else if (!isBlocked && i != _selectedIndex)
                     Console.ForegroundColor = ConsoleColor.DarkGreen;
 
-                string path = proc.ExecutablePath;
+                string path = group.ExecutablePath;
                 
                 // Извлекаем имя родительской папки (идентификатор инстанса) и имя файла для форматированного вывода
                 string? dirName = Path.GetDirectoryName(path);
@@ -126,7 +147,9 @@ internal sealed class TargetedView : IView
                 
                 string fileName = Path.GetFileName(path);
                 string tail = string.IsNullOrEmpty(fileName) ? @"\parsecd.exe" : @"\" + fileName;
-                string pidStr = $"(PID: {proc.Pid})";
+                string pidStr = group.AllPids.Length > 1 
+                    ? $"(PIDs: {string.Join(", ", group.AllPids)})" 
+                    : $"(PID: {group.PrimaryPid})";
 
                 Console.ForegroundColor = (i == _selectedIndex) ? ConsoleColor.Black : ConsoleColor.Cyan;
                 Console.Write(folderName.PadRight(40));
@@ -144,7 +167,7 @@ internal sealed class TargetedView : IView
 
             if (showScrollIndicators)
             {
-                int itemsBelow = processes.Length - (_scrollOffset + MaxVisibleItems);
+                int itemsBelow = groups.Length - (_scrollOffset + MaxVisibleItems);
                 if (itemsBelow > 0)
                 {
                     Console.ForegroundColor = ConsoleColor.DarkCyan;
@@ -157,10 +180,10 @@ internal sealed class TargetedView : IView
                 }
             }
         }
-        
+
         Console.WriteLine(new string(' ', Console.WindowWidth - 1));
 
-        // Контекстные кнопки управления профилями
+        // Контекстные кнопки управления профилями (находятся прямо под списком окон, как и раньше)
         bool hasSelection = isolator.HasTargetedBlockedPaths;
         bool hasProfiles = ProfileManager.GetAvailableProfiles().Count > 0;
 
@@ -183,28 +206,69 @@ internal sealed class TargetedView : IView
 
         WritePaddedLine("-------------------------------------------------------------------------", ConsoleColor.DarkGray);
         
-        // ДВА отступа по требованию пользователя для развязки элементов
-        Console.WriteLine(new string(' ', Console.WindowWidth - 1));
+        // Симметричный верхний отступ в 1 строку для баланса с нижним отступом
         Console.WriteLine(new string(' ', Console.WindowWidth - 1));
 
-        WritePaddedLine("Управление списком буферов:", ConsoleColor.White);
-        
-        WriteFooterBtn("[Space]", "Изолировать окно");
-        WriteFooterBtn("[P]", "Прозвон");
-        WriteFooterBtn("[1]/[2]", "Все/Ничего");
-        FinishLine();
-        
-        Console.WriteLine(new string(' ', Console.WindowWidth - 1));
-        
-        WritePaddedLine("Управление интерфейсом:", ConsoleColor.White);
-        
-        WriteFooterBtn("[Up/Down]", "Навигация");
-        WriteFooterBtn("[<-]", "Глобальный режим");
-        WriteFooterBtn("[R]", "Обновить");
-        WriteFooterBtn("[Esc]", "Выход");
-        FinishLine();
+        // Категории горячих клавиш в 2 параллельных столбца
+        var leftItems = new (string Key, string Desc, ConsoleColor Color)[]
+        {
+            ("[Space]", "Изолировать окно", ConsoleColor.Yellow),
+            ("[P]", "Прозвон", ConsoleColor.Yellow),
+            ("[1]/[2]", "Все/Ничего", ConsoleColor.Yellow)
+        };
 
-        // Отделение пунктирной линией блока контроля мыши по требованию пользователя
+        var rightItems = new (string Key, string Desc, ConsoleColor Color)[]
+        {
+            ("[Up/Down]", "Навигация", ConsoleColor.Yellow),
+            ("[<-]", "Глобальный режим", ConsoleColor.Yellow),
+            ("[R]", "Обновить", ConsoleColor.Yellow),
+            ("[Esc]", "Выход", ConsoleColor.Yellow)
+        };
+
+        int colWidth = 42;
+
+        // Отрисовка заголовков левого и правого столбца в одной строке
+        Console.ForegroundColor = ConsoleColor.White;
+        Console.Write("Управление списком буферов:".PadRight(colWidth));
+        int remHeaderPad = Math.Max(0, Console.WindowWidth - 1 - colWidth);
+        Console.Write("Управление интерфейсом:".PadRight(remHeaderPad));
+        Console.WriteLine();
+        Console.ResetColor();
+
+        // Построчная параллельная отрисовка двух столбцов
+        int maxRows = Math.Max(leftItems.Length, rightItems.Length);
+        for (int row = 0; row < maxRows; row++)
+        {
+            // Элемент левого столбца (Управление списком буферов)
+            if (row < leftItems.Length)
+            {
+                var item = leftItems[row];
+                Console.ForegroundColor = item.Color;
+                Console.Write($" {item.Key} ".PadRight(10));
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.Write(item.Desc.PadRight(colWidth - 10));
+                Console.ResetColor();
+            }
+            else
+            {
+                Console.Write(new string(' ', colWidth));
+            }
+
+            // Элемент правого столбца (Управление интерфейсом)
+            if (row < rightItems.Length)
+            {
+                var item = rightItems[row];
+                Console.ForegroundColor = item.Color;
+                Console.Write($" {item.Key} ".PadRight(12));
+                Console.ForegroundColor = ConsoleColor.DarkGray;
+                Console.Write(item.Desc);
+                Console.ResetColor();
+            }
+
+            FinishLine();
+        }
+
+        // Симметричный нижний отступ в 1 строку перед пунктирной линией блока мыши
         Console.WriteLine(new string(' ', Console.WindowWidth - 1));
         WritePaddedLine("-------------------------------------------------------------------------", ConsoleColor.DarkGray);
 
@@ -260,10 +324,10 @@ internal sealed class TargetedView : IView
 
     public void HandleKey(ConsoleKeyInfo key, ParsecIsolator isolator)
     {
-        var processes = isolator.GetTrackedProcessesSnapshot();
+        var groups = GetGroups(isolator.GetTrackedProcessesSnapshot());
         
         // 1. Сначала обрабатываем навигацию по списку
-        if (TryHandleNavigation(key.Key, processes.Length))
+        if (TryHandleNavigation(key.Key, groups.Length))
         {
             UpdateDynamic(isolator);
             ClearFeedback();
@@ -271,7 +335,7 @@ internal sealed class TargetedView : IView
         }
 
         // 2. Диспетчеризация команд взаимодействия
-        ExecuteKeyCommand(key.Key, isolator, processes);
+        ExecuteKeyCommand(key.Key, isolator, groups);
     }
 
     public void ShowFeedback(string message, ConsoleColor color) => _logBox.ShowFeedback(message, color);
@@ -293,15 +357,15 @@ internal sealed class TargetedView : IView
         return false;
     }
 
-    private void ExecuteKeyCommand(ConsoleKey key, ParsecIsolator isolator, Models.ParsecProcessInfo[] processes)
+    private void ExecuteKeyCommand(ConsoleKey key, ParsecIsolator isolator, ProcessGroup[] groups)
     {
         switch (key)
         {
             case ConsoleKey.Spacebar:
-                ToggleSingleProcessBlock(isolator, processes);
+                ToggleSingleProcessBlock(isolator, groups);
                 break;
             case ConsoleKey.P:
-                PingSelectedProcessWindow(isolator, processes);
+                PingSelectedProcessWindow(isolator, groups);
                 break;
             case ConsoleKey.F:
                 ToggleMouseFocus(isolator);
@@ -321,31 +385,31 @@ internal sealed class TargetedView : IView
         }
     }
 
-    private void ToggleSingleProcessBlock(ParsecIsolator isolator, Models.ParsecProcessInfo[] processes)
+    private void ToggleSingleProcessBlock(ParsecIsolator isolator, ProcessGroup[] groups)
     {
-        if (processes.Length == 0) return;
+        if (groups.Length == 0) return;
         
-        var proc = processes[_selectedIndex];
-        bool isBlocked = isolator.ToggleTargetedBlockState(proc.ExecutablePath);
+        var group = groups[_selectedIndex];
+        bool isBlocked = isolator.ToggleTargetedBlockState(group.ExecutablePath);
         UpdateDynamic(isolator);
         
         if (isBlocked)
-            ShowFeedback($"Окно {proc.Pid} ИЗОЛИРОВАНО.", ConsoleColor.Red);
+            ShowFeedback($"Инстанс {group.PrimaryPid} ИЗОЛИРОВАН.", ConsoleColor.Red);
         else
-            ShowFeedback($"Окно {proc.Pid} ОБЪЕДИНЕНО с хостом.", ConsoleColor.DarkGreen);
+            ShowFeedback($"Инстанс {group.PrimaryPid} ОБЪЕДИНЕН с хостом.", ConsoleColor.DarkGreen);
     }
 
-    private void PingSelectedProcessWindow(ParsecIsolator isolator, Models.ParsecProcessInfo[] processes)
+    private void PingSelectedProcessWindow(ParsecIsolator isolator, ProcessGroup[] groups)
     {
-        if (processes.Length == 0) return;
+        if (groups.Length == 0) return;
         
-        var proc = processes[_selectedIndex];
-        bool success = isolator.FocusProcessWindow(proc.Pid);
+        var group = groups[_selectedIndex];
+        bool success = isolator.FocusProcessWindow(group.PrimaryPid);
         
         if (success)
-            ShowFeedback($"Окно {proc.Pid} выведено на передний план.", ConsoleColor.DarkGreen);
+            ShowFeedback($"Инстанс {group.PrimaryPid} выведен на передний план.", ConsoleColor.DarkGreen);
         else
-            ShowFeedback($"У процесса {proc.Pid} нет главного окна.", ConsoleColor.Red);
+            ShowFeedback($"У инстанса {group.PrimaryPid} нет главного окна.", ConsoleColor.Red);
     }
 
     private void ToggleMouseFocus(ParsecIsolator isolator)
