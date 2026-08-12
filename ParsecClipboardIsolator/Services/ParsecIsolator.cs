@@ -39,6 +39,20 @@ internal sealed class ParsecIsolator : IDisposable
         get { lock (_syncRoot) return _processes.Count; } 
     }
 
+    public int TrackedInstancesCount
+    {
+        get
+        {
+            lock (_syncRoot)
+            {
+                return _processes.Values
+                    .Select(p => p.ExecutablePath)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Count();
+            }
+        }
+    }
+
     public bool HasTargetedBlockedPaths
     {
         get { lock (_syncRoot) return _targetedBlockedPaths.Count > 0; }

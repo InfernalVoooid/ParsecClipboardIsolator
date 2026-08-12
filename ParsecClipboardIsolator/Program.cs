@@ -54,7 +54,7 @@ if (initResult.SkippedDueToArch > 0)
 {
     activeView.ShowFeedback($"ВНИМАНИЕ: Пропущено окон: {initResult.SkippedDueToArch} (разная разрядность!).", ConsoleColor.Red);
 }
-else if (isolator.TrackedProcessesCount == 0)
+else if (isolator.TrackedInstancesCount == 0)
 {
     activeView.ShowFeedback("Parsec не запущен. Запустите Parsec и нажмите [R].", ConsoleColor.Yellow);
 }

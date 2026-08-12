@@ -26,7 +26,7 @@ internal sealed class GlobalView : IView
         Console.ResetColor();
 
         _trackedCountCursorTop = Console.CursorTop;
-        Console.WriteLine($"[+] Отслеживается окон Parsec: {isolator.TrackedProcessesCount}");
+        Console.WriteLine($"[+] Отслеживается окон Parsec: {isolator.TrackedInstancesCount}");
         
         Console.ForegroundColor = ConsoleColor.White;
         Console.WriteLine("\nУправление:");
@@ -54,7 +54,7 @@ internal sealed class GlobalView : IView
         Console.SetCursorPosition(0, _trackedCountCursorTop);
         Console.Write(new string(' ', Console.WindowWidth - 1));
         Console.SetCursorPosition(0, _trackedCountCursorTop);
-        Console.WriteLine($"[+] Отслеживается окон Parsec: {isolator.TrackedProcessesCount}");
+        Console.WriteLine($"[+] Отслеживается окон Parsec: {isolator.TrackedInstancesCount}");
 
         Console.SetCursorPosition(0, _statusCursorTop);
         Console.ForegroundColor = ConsoleColor.White;
@@ -77,7 +77,7 @@ internal sealed class GlobalView : IView
             Console.ResetColor();
             
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.Write($"  Буфер обмена полностью изолирован от хоста ({isolator.TrackedProcessesCount} окон).");
+            Console.Write($"  Буфер обмена полностью изолирован от хоста ({isolator.TrackedInstancesCount} окон).");
         }
         else
         {
