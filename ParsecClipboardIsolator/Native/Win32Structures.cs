@@ -34,3 +34,6 @@ internal struct MSG
 
 internal delegate IntPtr LowLevelMouseProc(int nCode, IntPtr wParam, IntPtr lParam);
 internal delegate void WinEventProc(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime);
+
+// Обработчик консольных событий ОС (Ctrl+C, закрытие по крестику, выход из сеанса)
+internal delegate bool ConsoleCtrlHandler(uint ctrlType);

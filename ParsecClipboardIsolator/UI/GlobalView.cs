@@ -147,6 +147,13 @@ internal sealed class GlobalView : IView
     {
         isolator.SetGlobalBlockState(!isolator.IsGlobalBlockActive);
         UpdateDynamic(isolator);
+
+        if (isolator.LastFailureReason is { } failure)
+        {
+            ShowFeedback(failure, ConsoleColor.Red);
+            return;
+        }
+
         ShowFeedback(
             isolator.IsGlobalBlockActive ? "Изоляция буфера обмена ВКЛЮЧЕНА для всех окон." : "Буфер обмена ОБЪЕДИНЕН со всеми окнами.", 
             isolator.IsGlobalBlockActive ? ConsoleColor.Green : ConsoleColor.Yellow
@@ -157,6 +164,13 @@ internal sealed class GlobalView : IView
     {
         bool newState = isolator.ToggleMouseFocusBlockState();
         UpdateDynamic(isolator);
+
+        if (isolator.LastFailureReason is { } failure)
+        {
+            ShowFeedback(failure, ConsoleColor.Red);
+            return;
+        }
+
         ShowFeedback(
             newState ? "Контроль фокуса мыши ВКЛЮЧЕН (неактивные окна защищены)." : "Контроль фокуса мыши ВЫКЛЮЧЕН.", 
             newState ? ConsoleColor.Cyan : ConsoleColor.Yellow

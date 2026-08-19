@@ -4,5 +4,6 @@ namespace ParsecClipboardIsolator.Models;
 internal sealed record RefreshResult(
     int NewlyAttached, 
     int SkippedDueToArch, 
-    int Removed
+    int Removed,
+    int Failed
 );

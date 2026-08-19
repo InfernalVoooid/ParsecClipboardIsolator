@@ -387,23 +387,41 @@ internal sealed class TargetedView : IView
 
     private void ToggleSingleProcessBlock(ParsecIsolator isolator, ProcessGroup[] groups)
     {
-        if (groups.Length == 0) return;
-        
-        var group = groups[_selectedIndex];
+        if (!TryGetSelectedGroup(groups, out var group)) return;
+
         bool isBlocked = isolator.ToggleTargetedBlockState(group.ExecutablePath);
         UpdateDynamic(isolator);
-        
+
+        if (isolator.LastFailureReason is { } failure)
+        {
+            ShowFeedback(failure, ConsoleColor.Red);
+            return;
+        }
+
         if (isBlocked)
             ShowFeedback($"Инстанс {group.PrimaryPid} ИЗОЛИРОВАН.", ConsoleColor.Red);
         else
             ShowFeedback($"Инстанс {group.PrimaryPid} ОБЪЕДИНЕН с хостом.", ConsoleColor.DarkGreen);
     }
 
+    // Список групп перечитывается на каждое нажатие и может оказаться короче,
+    // чем на момент последней отрисовки, когда индекс выбора ограничивался.
+    private bool TryGetSelectedGroup(ProcessGroup[] groups, out ProcessGroup group)
+    {
+        if (_selectedIndex >= 0 && _selectedIndex < groups.Length)
+        {
+            group = groups[_selectedIndex];
+            return true;
+        }
+
+        group = null!;
+        return false;
+    }
+
     private void PingSelectedProcessWindow(ParsecIsolator isolator, ProcessGroup[] groups)
     {
-        if (groups.Length == 0) return;
-        
-        var group = groups[_selectedIndex];
+        if (!TryGetSelectedGroup(groups, out var group)) return;
+
         bool success = isolator.FocusProcessWindow(group.PrimaryPid);
         
         if (success)
@@ -416,6 +434,13 @@ internal sealed class TargetedView : IView
     {
         bool mouseFocusState = isolator.ToggleMouseFocusBlockState();
         UpdateDynamic(isolator);
+
+        if (isolator.LastFailureReason is { } failure)
+        {
+            ShowFeedback(failure, ConsoleColor.Red);
+            return;
+        }
+
         ShowFeedback(
             mouseFocusState ? "Контроль фокуса мыши ВКЛЮЧЕН (неактивные окна защищены)." : "Контроль фокуса мыши ВЫКЛЮЧЕН.", 
             mouseFocusState ? ConsoleColor.Cyan : ConsoleColor.Yellow
@@ -426,6 +451,13 @@ internal sealed class TargetedView : IView
     {
         isolator.SetAllTargetedStates(block);
         UpdateDynamic(isolator);
+
+        if (isolator.LastFailureReason is { } failure)
+        {
+            ShowFeedback(failure, ConsoleColor.Red);
+            return;
+        }
+
         ShowFeedback(
             block ? "Все окна изолированы." : "Все окна разблокированы (общий буфер).", 
             block ? ConsoleColor.Red : ConsoleColor.DarkGreen

@@ -16,7 +16,7 @@ if (defaultProfile != null)
 {
     var paths = ProfileManager.LoadProfile(defaultProfile);
     isolator.LoadTargetedBlockedPaths(paths);
-    
+
     // Автоматически переходим в Таргетный режим при наличии дефолтного профиля
     isolator.SetMode(IsolationMode.Targeted);
     activeView = targetedView;
@@ -36,23 +36,25 @@ catch (Exception ex) when (ex is not OutOfMemoryException)
     return;
 }
 
-// Гарантируем откат байт OpenClipboard и закрытие дескрипторов при любом способе выхода из программы
-AppDomain.CurrentDomain.ProcessExit += (s, e) => 
+// Гарантируем откат байт OpenClipboard и разблокировку окон при любом способе выхода.
+// Закрытие консоли по крестику (CTRL_CLOSE_EVENT) среда .NET не транслирует в
+// ProcessExit, поэтому оно перехватывается отдельно через SetConsoleCtrlHandler.
+ConsoleShutdownGuard.Install(() =>
 {
     isolator.Dispose();
     Console.CursorVisible = true;
-};
-Console.CancelKeyPress += (s, e) => 
-{
-    isolator.Dispose();
-    Console.CursorVisible = true;
-};
+});
+AppDomain.CurrentDomain.ProcessExit += (s, e) => ConsoleShutdownGuard.RunCleanupOnce();
 
 activeView.DrawFull(isolator);
 
 if (initResult.SkippedDueToArch > 0)
 {
     activeView.ShowFeedback($"ВНИМАНИЕ: Пропущено окон: {initResult.SkippedDueToArch} (разная разрядность!).", ConsoleColor.Red);
+}
+else if (isolator.LastFailureReason is { } initFailure)
+{
+    activeView.ShowFeedback(initFailure, ConsoleColor.Red);
 }
 else if (isolator.TrackedInstancesCount == 0)
 {
@@ -64,29 +66,35 @@ try
     while (true)
     {
         var key = Console.ReadKey(intercept: true);
-        
+
         if (key.Key == ConsoleKey.Escape)
         {
             activeView.ShowFeedback("Завершение работы программы...", ConsoleColor.Cyan);
             return;
         }
-        
+
         if (key.Key == ConsoleKey.R)
         {
             var result = isolator.Refresh();
-            
-            string archWarning = result.SkippedDueToArch > 0 
-                ? $" (Пропущено {result.SkippedDueToArch} из-за разрядности!)" 
+            activeView.UpdateDynamic(isolator);
+
+            if (isolator.LastFailureReason is { } refreshFailure)
+            {
+                activeView.ShowFeedback(refreshFailure, ConsoleColor.Red);
+                continue;
+            }
+
+            string archWarning = result.SkippedDueToArch > 0
+                ? $" (Пропущено {result.SkippedDueToArch} из-за разрядности!)"
                 : "";
-                
-            string removedInfo = result.Removed > 0 
-                ? $". Очищено: {result.Removed}" 
+
+            string removedInfo = result.Removed > 0
+                ? $". Очищено: {result.Removed}"
                 : "";
-                
+
             string feedback = $"Обновлено. Новых: {result.NewlyAttached}{removedInfo}{archWarning}";
             ConsoleColor color = result.SkippedDueToArch > 0 ? ConsoleColor.Yellow : ConsoleColor.DarkGray;
-            
-            activeView.UpdateDynamic(isolator);
+
             activeView.ShowFeedback(feedback, color);
             continue;
         }
@@ -98,7 +106,7 @@ try
             activeView.DrawFull(isolator);
             continue;
         }
-        
+
         if (key.Key == ConsoleKey.RightArrow && activeView is GlobalView)
         {
             isolator.SetMode(IsolationMode.Targeted);

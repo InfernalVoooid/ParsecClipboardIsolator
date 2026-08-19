@@ -12,6 +12,7 @@ internal static partial class NativeMethods
 {
     // Права доступа к процессу для записи и смены защиты страниц памяти
     public const uint PROCESS_VM_WRITE = 0x0020;
+    public const uint PROCESS_VM_READ = 0x0010;
     public const uint PROCESS_VM_OPERATION = 0x0008;
     public const uint PROCESS_QUERY_LIMITED_INFORMATION = 0x1000;
     
@@ -23,17 +24,25 @@ internal static partial class NativeMethods
 
     // Константы хука мыши и событий WinEvent
     public const int WH_MOUSE_LL = 14;
-    public const int WM_MOUSEMOVE = 0x0200;
     public const int WM_LBUTTONDOWN = 0x0201;
     public const int WM_RBUTTONDOWN = 0x0204;
     public const int WM_MBUTTONDOWN = 0x0207;
-    public const int WM_MOUSEWHEEL = 0x020A;
-    public const int WM_SETCURSOR = 0x0020;
     public const int WM_QUIT = 0x0012;
     public const uint GA_ROOT = 2;
     public const uint EVENT_SYSTEM_FOREGROUND = 0x0003;
     public const uint WINEVENT_OUTOFCONTEXT = 0x0000;
     public const uint PM_NOREMOVE = 0x0000;
+
+    // Расширенный стиль окна: служебные tray/overlay-окна помечены WS_EX_TOOLWINDOW
+    public const int GWL_EXSTYLE = -20;
+    public const int WS_EX_TOOLWINDOW = 0x00000080;
+
+    // Типы консольных событий для SetConsoleCtrlHandler
+    public const uint CTRL_C_EVENT = 0;
+    public const uint CTRL_BREAK_EVENT = 1;
+    public const uint CTRL_CLOSE_EVENT = 2;
+    public const uint CTRL_LOGOFF_EVENT = 5;
+    public const uint CTRL_SHUTDOWN_EVENT = 6;
 
     [LibraryImport("user32.dll", EntryPoint = "PeekMessageW", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
@@ -98,6 +107,14 @@ internal static partial class NativeMethods
 
     [LibraryImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool ReadProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress, ref byte lpBuffer, int nSize, out int lpNumberOfBytesRead);
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool SetConsoleCtrlHandler(ConsoleCtrlHandler handlerRoutine, [MarshalAs(UnmanagedType.Bool)] bool add);
+
+    [LibraryImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool WriteProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress, in byte lpBuffer, int nSize, out int lpNumberOfBytesWritten);
 
     [LibraryImport("kernel32.dll", SetLastError = true)]
@@ -129,7 +146,6 @@ internal static partial class NativeMethods
     // Константы инжектированного ввода и активации
     public const uint LLMHF_INJECTED = 0x00000001;
     public const uint LLMHF_LOWER_IL_INJECTED = 0x00000002;
-    public const uint ASFW_ANY = 0xFFFFFFFF;
 
     public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
 
@@ -167,4 +183,24 @@ internal static partial class NativeMethods
     [LibraryImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool ShowWindow(IntPtr hWnd, int nCmdShow);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool IsWindow(IntPtr hWnd);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool IsWindowEnabled(IntPtr hWnd);
+
+    // Сообщает, что поток окна не выкачивает очередь сообщений: такому окну
+    // нельзя слать синхронный WM_ENABLE, вызов заблокируется без таймаута
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool IsHungAppWindow(IntPtr hWnd);
+
+    [LibraryImport("user32.dll", EntryPoint = "GetWindowLongW")]
+    public static partial int GetWindowLong(IntPtr hWnd, int nIndex);
+
+    [LibraryImport("user32.dll", EntryPoint = "GetWindowTextLengthW")]
+    public static partial int GetWindowTextLength(IntPtr hWnd);
 }
